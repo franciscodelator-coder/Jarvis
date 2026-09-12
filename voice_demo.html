@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Jarvis Voice Demo</title>
+<style>
+  body { font-family: -apple-system, sans-serif; background: #0f0f14; color: #e8e8ec; margin: 0; padding: 20px; min-height: 100vh; box-sizing: border-box; }
+  h1 { font-size: 20px; font-weight: 600; margin-bottom: 4px; }
+  .sub { color: #888; font-size: 13px; margin-bottom: 24px; }
+  .key-box { background: #1a1a22; border: 1px solid #2a2a35; border-radius: 10px; padding: 14px; margin-bottom: 20px; }
+  .key-box label { font-size: 12px; color: #999; display: block; margin-bottom: 6px; }
+  input[type="text"] { width: 100%; box-sizing: border-box; background: #0f0f14; border: 1px solid #2a2a35; border-radius: 8px; padding: 12px; color: #e8e8ec; font-size: 16px; }
+  #chat { min-height: 200px; max-height: 45vh; overflow-y: auto; margin-bottom: 16px; }
+  .msg { padding: 10px 14px; border-radius: 12px; margin-bottom: 10px; font-size: 15px; line-height: 1.4; }
+  .user { background: #2563eb; margin-left: 15%; }
+  .jarvis { background: #1a1a22; margin-right: 15%; border: 1px solid #2a2a35; }
+  #inputRow { display: flex; gap: 8px; margin-top: 10px; }
+  #textInput { flex: 1; background: #1a1a22; border: 1px solid #2a2a35; border-radius: 10px; padding: 14px; color: #e8e8ec; font-size: 16px; }
+  button { background: #2563eb; color: white; border: none; border-radius: 10px; padding: 0 20px; font-size: 15px; font-weight: 600; }
+  button:active { background: #1d4ed8; }
+  .hint { color: #666; font-size: 12px; margin-top: 10px; text-align: center; }
+  .status { color: #999; font-size: 13px; margin-bottom: 10px; min-height: 16px; }
+</style>
+</head>
+<body>
+
+<h1>Jarvis Voice Demo</h1>
+<div class="sub">Tap the mic on your keyboard to talk, Jarvis talks back</div>
+
+<div class="key-box">
+  <label>Anthropic API Key (stays on this page only, not saved)</label>
+  <input type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" id="apiKey" placeholder="sk-ant-...">
+</div>
+
+<div id="chat"></div>
+<div class="status" id="status"></div>
+
+<div id="inputRow">
+  <input type="text" id="textInput" placeholder="Tap here, then tap the mic on your keyboard...">
+  <button onclick="send()">Send</button>
+</div>
+
+<div class="hint">On iOS: tap the text field, then tap the microphone icon on the keyboard to dictate</div>
+
+<script>
+let history = [];
+
+function addMsg(text, who) {
+  const chat = document.getElementById('chat');
+  const div = document.createElement('div');
+  div.className = 'msg ' + who;
+  div.textContent = text;
+  chat.appendChild(div);
+  chat.scrollTop = chat.scrollHeight;
+}
+
+function speak(text) {
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.rate = 1.0;
+  window.speechSynthesis.speak(utterance);
+}
+
+async function send() {
+  const input = document.getElementById('textInput');
+  const apiKey = document.getElementById('apiKey').value.trim();
+  const text = input.value.trim();
+  const status = document.getElementById('status');
+
+  if (!apiKey) { status.textContent = 'Enter your API key first.'; return; }
+  if (!text) return;
+
+  addMsg(text, 'user');
+  input.value = '';
+  status.textContent = 'Jarvis is thinking...';
+
+  history.push({ role: 'user', content: text });
+
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 1024,
+        system: 'You are Jarvis, a helpful voice assistant. Keep replies short and conversational since they will be spoken aloud.',
+        messages: history
+      })
+    });
+
+    const data = await response.json();
+
+    if (data.error) {
+      status.textContent = 'Error: ' + data.error.message;
+      return;
+    }
+
+    const reply = data.content[0].text;
+    history.push({ role: 'assistant', content: reply });
+    addMsg(reply, 'jarvis');
+    speak(reply);
+    status.textContent = '';
+  } catch (err) {
+    status.textContent = 'Error: ' + err.message;
+  }
+}
+
+document.getElementById('textInput').addEventListener('keypress', function(e) {
+  if (e.key === 'Enter') send();
+});
+</script>
+
+</body>
+</html>
