@@ -33,6 +33,20 @@ TOOLS = [
             },
             "required": ["city"]
         }
+    },
+    {
+        "name": "calculate",
+        "description": "Evaluate a math expression and return the exact result. Use this for any arithmetic, even simple sums, instead of computing it yourself.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "expression": {
+                    "type": "string",
+                    "description": "A math expression, e.g. '23 * 47' or '(120 + 15) / 3'"
+                }
+            },
+            "required": ["expression"]
+        }
     }
 ]
 
@@ -45,9 +59,22 @@ def get_weather(city: str) -> str:
         return f"Couldn't get weather: {e}"
 
 
+def calculate(expression: str) -> str:
+    allowed = set("0123456789+-*/().% ")
+    if not set(expression) <= allowed:
+        return "Error: expression contains characters that aren't allowed."
+    try:
+        result = eval(expression, {"__builtins__": {}}, {})
+        return str(result)
+    except Exception as e:
+        return f"Error evaluating expression: {e}"
+
+
 def run_tool(name: str, tool_input: dict) -> str:
     if name == "get_weather":
         return get_weather(tool_input["city"])
+    if name == "calculate":
+        return calculate(tool_input["expression"])
     return f"Unknown tool: {name}"
 
 
