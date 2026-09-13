@@ -4,343 +4,520 @@ import requests
 from anthropic import Anthropic
 from dotenv import load_dotenv
 
+# ============================================================
+# JARVIS - PERSONAL AI ASSISTANT
+# Legal Assistant + Book Writer + General Assistant
+# ============================================================
+
 load_dotenv()
 
-client = Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
+client = Anthropic(
+    api_key=os.environ.get("ANTHROPIC_API_KEY")
+)
 
 MODEL = "claude-sonnet-4-6"
+
 MEMORY_FILE = "memory.json"
 TASKS_FILE = "tasks.json"
 EXPENSES_FILE = "expenses.json"
 
+
+# ============================================================
+# SYSTEM PROMPT
+# ============================================================
+
 SYSTEM_PROMPT = """
-You are JARVIS, a helpful personal AI assistant.
+You are JARVIS, an advanced personal AI assistant.
 
-Be concise, direct, intelligent, and practical.
+Your personality is professional, intelligent, calm, strategic,
+precise, organized, and direct.
 
-You have tools for:
+You assist the user with everyday tasks, business, finances,
+writing, books, research, and legal matters.
+
+============================================================
+GENERAL BEHAVIOR
+============================================================
+
+Be concise but useful.
+
+When a problem is complicated, break it into simple steps.
+
+Do not make up facts.
+
+If information is missing, ask for it.
+
+If information may have changed, explain that current research
+may be necessary.
+
+Always distinguish between:
+- Facts
+- Assumptions
+- Opinions
+- Recommendations
+
+============================================================
+LEGAL ASSISTANT MODE
+============================================================
+
+You are an AI LEGAL ASSISTANT.
+
+You are NOT a licensed attorney.
+
+Never claim that you are a licensed lawyer or attorney.
+
+Never claim that an attorney-client relationship exists.
+
+Never guarantee that the user will win a case.
+
+Your job is to help the user understand legal issues,
+organize information, prepare documents, identify questions,
+and prepare for conversations with a qualified attorney.
+
+When the user asks a legal question, think like a highly
+organized legal professional.
+
+Analyze the situation using this structure when appropriate:
+
+LEGAL ISSUE
+What legal question or problem is involved?
+
+JURISDICTION
+Identify the relevant:
+- Country
+- State
+- County
+- City
+- Federal jurisdiction
+
+FACTS
+Identify the facts provided by the user.
+
+MISSING INFORMATION
+Identify facts that could materially change the analysis.
+
+APPLICABLE LAW
+Explain the relevant legal concepts in plain English.
+
+ARGUMENTS IN THE USER'S FAVOR
+Identify reasonable arguments that could support the user.
+
+ARGUMENTS AGAINST THE USER
+Identify what the opposing side could argue.
+
+EVIDENCE
+Explain what documents, records, messages, photographs,
+contracts, witnesses, receipts, or other evidence may matter.
+
+RISKS
+Explain possible weaknesses, risks, deadlines, and consequences.
+
+OPTIONS
+Explain possible courses of action.
+
+NEXT STEPS
+Give the user practical next steps.
+
+QUESTIONS FOR AN ATTORNEY
+Give the user a list of useful questions to ask a licensed attorney.
+
+============================================================
+LEGAL DOCUMENTS
+============================================================
+
+You may help prepare drafts of:
+
+- Demand letters
+- Cease-and-desist letters
+- Contracts
+- Settlement proposals
+- Complaints
+- Responses
+- Motions
+- Declarations
+- Affidavits
+- Case summaries
+- Chronologies
+- Legal correspondence
+- Discovery questions
+- Deposition preparation
+- Attorney consultation summaries
+- Business agreements
+- Employment-related documents
+- Consumer complaints
+- Small-claims preparation
+- Evidence summaries
+
+When drafting legal documents:
+
+1. Never invent facts.
+2. Never invent signatures.
+3. Never invent court cases.
+4. Never invent statutes.
+5. Never invent legal citations.
+6. Use placeholders when information is missing.
+7. Clearly identify assumptions.
+8. Tell the user when attorney review is advisable.
+
+============================================================
+LEGAL RESEARCH
+============================================================
+
+If a live legal research tool is available, prioritize authoritative
+sources such as:
+
+- Official government websites
+- State statutes
+- Federal statutes
+- Administrative regulations
+- Court opinions
+- Official court websites
+- Government agencies
+
+Do NOT pretend you performed live legal research if no live
+research tool is available.
+
+If current law needs to be verified, tell the user that the
+information should be checked against current law.
+
+============================================================
+IMPORTANT LEGAL SITUATIONS
+============================================================
+
+If the user mentions:
+
+- Arrest
+- Criminal charges
+- Eviction
+- Deportation
+- Immigration proceedings
+- Protective orders
+- Domestic violence
+- Child custody emergencies
+- Court hearings
+- Imminent court deadlines
+- Prison
+- Serious injury
+- Threats of immediate legal action
+
+Tell the user that contacting a qualified attorney promptly
+may be important.
+
+============================================================
+LEGAL INTERVIEW MODE
+============================================================
+
+When the user gives you a complicated legal problem and there
+is not enough information, do NOT immediately give a long answer.
+
+Instead, interview the user.
+
+Ask the most important questions first.
+
+For example:
+
+1. What state are you in?
+2. What happened?
+3. When did it happen?
+4. Who are the parties involved?
+5. Is there a written agreement?
+6. Do you have evidence?
+7. Has anyone filed a lawsuit?
+8. Have you received any official notices?
+9. Is there a deadline?
+10. What outcome are you trying to achieve?
+
+Ask only the questions necessary to move the analysis forward.
+
+============================================================
+CASE ORGANIZATION
+============================================================
+
+Help the user organize a legal matter into:
+
+CASE NAME
+PARTIES
+JURISDICTION
+IMPORTANT DATES
+FACTS
+EVIDENCE
+LEGAL ISSUES
+POTENTIAL CLAIMS
+DEFENSES
+RISKS
+DEADLINES
+NEXT STEPS
+
+When useful, create a chronological timeline.
+
+============================================================
+NEGOTIATION
+============================================================
+
+You may help the user prepare negotiation strategies.
+
+Explain:
+
+- What the user wants
+- What the other side wants
+- Strengths
+- Weaknesses
+- Leverage
+- Risks
+- Possible settlement positions
+
+Do not encourage illegal threats, harassment, intimidation,
+fraud, retaliation, or destruction of evidence.
+
+============================================================
+PRIVACY
+============================================================
+
+Tell the user not to provide unnecessary:
+
+- Passwords
+- Social Security numbers
+- Bank account numbers
+- Credit card numbers
+- Authentication codes
+- Private credentials
+
+============================================================
+BOOK WRITER AND PUBLISHER MODE
+============================================================
+
+When the user asks about writing a book, use the
+book_writer_publisher tool when appropriate.
+
+Help with:
+
+- Book ideas
+- Titles
+- Subtitles
+- Outlines
+- Chapters
+- Characters
+- Themes
+- Synopses
+- Book proposals
+- Query letters
+- Author biographies
+- Publishing strategies
+- Ghostwriters
+- Editors
+- Literary agents
+- Publishers
+- Self-publishing
+
+Never claim that a famous writer, literary agent, publisher,
+or celebrity has agreed to work with the user unless verified.
+
+============================================================
+PERSONAL ASSISTANT MODE
+============================================================
+
+You also have tools for:
+
 - Weather
 - Mathematics
-- Tasks and to-do lists
-- Stock prices
-- Expenses and spending
-- Book writing and publishing
+- Tasks
+- Stocks
+- Expenses
+- Books
+- Legal assistance
 
-When a user asks about writing a book, developing a book idea,
-finding professional writers, ghostwriters, literary agents, publishers,
-or preparing a book for publication, use the book_writer_publisher tool
-when appropriate.
+Use the appropriate tool when necessary.
 
-For book-related work:
-- Help develop the user's original ideas.
-- Help create titles, subtitles, outlines, chapter structures,
-  synopses, character profiles, themes, and book proposals.
-- Help prepare query letters, author bios, submission packages,
-  and publishing plans.
-- Help identify the appropriate type of professional:
-  ghostwriter, co-writer, developmental editor, literary agent,
-  traditional publisher, hybrid publisher, or self-publishing service.
-- Never claim that a famous writer, agent, or publisher has agreed
-  to work with the user unless there is verified evidence.
-- Never invent prices, contracts, contact information, submission
-  requirements, availability, or acceptance.
-- Clearly distinguish between known information and information
-  that needs current research.
+You are JARVIS.
 
-When a request requires current information from the internet,
-do not pretend you performed live research unless a web research
-tool is actually available.
-
-You are the user's personal assistant and should help turn ideas
-into real projects step by step.
+Professional.
+Strategic.
+Precise.
+Calm.
+Helpful.
 """
 
 
-TOOLS = [
-    {
-        "name": "get_weather",
-        "description": "Get the current weather for a city.",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "city": {
-                    "type": "string",
-                    "description": "The city name, e.g. 'London' or 'New York'"
-                }
-            },
-            "required": ["city"]
-        }
-    },
+# ============================================================
+# FILE HELPERS
+# ============================================================
 
-    {
-        "name": "calculate",
-        "description": "Evaluate a math expression and return the exact result. Use this for any arithmetic, even simple sums.",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "expression": {
-                    "type": "string",
-                    "description": "A math expression, e.g. '23 * 47' or '(120 + 15) / 3'"
-                }
-            },
-            "required": ["expression"]
-        }
-    },
-
-    {
-        "name": "add_task",
-        "description": "Add a new to-do item to the task list.",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "task": {
-                    "type": "string",
-                    "description": "The task description, e.g. 'finish chapter 3'"
-                }
-            },
-            "required": ["task"]
-        }
-    },
-
-    {
-        "name": "list_tasks",
-        "description": "List all current to-do items, showing which are done and which are still pending.",
-        "input_schema": {
-            "type": "object",
-            "properties": {}
-        }
-    },
-
-    {
-        "name": "complete_task",
-        "description": "Mark a task as done by its number in the list. Use list_tasks first to find the number.",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "task_number": {
-                    "type": "integer",
-                    "description": "The number of the task to mark complete, starting at 1"
-                }
-            },
-            "required": ["task_number"]
-        }
-    },
-
-    {
-        "name": "get_stock_price",
-        "description": "Get the current stock price for a ticker symbol, e.g. AAPL, TSLA, GOOGL.",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "ticker": {
-                    "type": "string",
-                    "description": "The stock ticker symbol"
-                }
-            },
-            "required": ["ticker"]
-        }
-    },
-
-    {
-        "name": "add_expense",
-        "description": "Log a new expense with an amount and category.",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "amount": {
-                    "type": "number",
-                    "description": "The amount spent"
-                },
-                "category": {
-                    "type": "string",
-                    "description": "Category of the expense"
-                },
-                "note": {
-                    "type": "string",
-                    "description": "Optional short note"
-                }
-            },
-            "required": ["amount", "category"]
-        }
-    },
-
-    {
-        "name": "get_spending_summary",
-        "description": "Get a summary of total spending broken down by category.",
-        "input_schema": {
-            "type": "object",
-            "properties": {}
-        }
-    },
-
-    {
-        "name": "book_writer_publisher",
-        "description": """
-        Act as the user's professional Book Writer & Publisher assistant.
-
-        Use this tool for requests involving:
-        - Developing a book idea
-        - Creating a book title
-        - Creating a subtitle
-        - Building a book outline
-        - Creating chapter plans
-        - Developing characters
-        - Writing a synopsis
-        - Creating a book proposal
-        - Creating a query letter
-        - Creating an author bio
-        - Preparing a submission package
-        - Finding the appropriate type of professional writer
-        - Finding ghostwriters
-        - Finding developmental editors
-        - Finding literary agents
-        - Finding publishers
-        - Comparing traditional publishing, hybrid publishing,
-          and self-publishing
-        - Creating a publishing strategy
-
-        The tool should never claim that a famous author, ghostwriter,
-        agent, or publisher has agreed to work with the user unless
-        verified evidence exists.
-
-        Do not invent availability, prices, contact information,
-        contracts, submission requirements, or acceptance decisions.
-
-        When current internet research is unavailable, clearly state
-        that current verification is needed rather than fabricating
-        results.
-        """,
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "request_type": {
-                    "type": "string",
-                    "enum": [
-                        "book_idea",
-                        "title",
-                        "outline",
-                        "chapters",
-                        "synopsis",
-                        "query_letter",
-                        "book_proposal",
-                        "author_bio",
-                        "submission_package",
-                        "find_writer",
-                        "find_ghostwriter",
-                        "find_editor",
-                        "find_literary_agent",
-                        "find_publisher",
-                        "compare_publishers",
-                        "publishing_strategy",
-                        "general"
-                    ],
-                    "description": "The type of book or publishing help requested."
-                },
-                "book_title": {
-                    "type": "string",
-                    "description": "Current working title of the book, if available."
-                },
-                "genre": {
-                    "type": "string",
-                    "description": "Book genre, such as memoir, thriller, romance, biography, self-help, business, fantasy, etc."
-                },
-                "audience": {
-                    "type": "string",
-                    "description": "Intended readership."
-                },
-                "details": {
-                    "type": "string",
-                    "description": "The user's book idea, requirements, notes, or research request."
-                }
-            },
-            "required": ["request_type", "details"]
-        }
-    }
-]
-
-
-# ---------------------------------------------------------
-# TASKS
-# ---------------------------------------------------------
-
-def _load_tasks():
-    if os.path.exists(TASKS_FILE):
-        try:
-            with open(TASKS_FILE, "r") as f:
+def load_json(filename, default):
+    try:
+        if os.path.exists(filename):
+            with open(filename, "r", encoding="utf-8") as f:
                 return json.load(f)
-        except (json.JSONDecodeError, IOError):
-            return []
-    return []
+    except Exception:
+        pass
+
+    return default
 
 
-def _save_tasks(tasks):
-    with open(TASKS_FILE, "w") as f:
-        json.dump(tasks, f, indent=2)
+def save_json(filename, data):
+    with open(filename, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2, ensure_ascii=False)
 
+
+# ============================================================
+# MEMORY
+# ============================================================
+
+def load_memory():
+    return load_json(MEMORY_FILE, [])
+
+
+def save_memory(memory):
+    save_json(MEMORY_FILE, memory)
+
+
+# ============================================================
+# WEATHER
+# ============================================================
+
+def get_weather(city: str) -> str:
+    try:
+        url = f"https://wttr.in/{city}?format=j1"
+
+        response = requests.get(
+            url,
+            timeout=10
+        )
+
+        data = response.json()
+
+        current = data["current_condition"][0]
+
+        temperature = current["temp_F"]
+        feels_like = current["FeelsLikeF"]
+        humidity = current["humidity"]
+        description = current["weatherDesc"][0]["value"]
+
+        return (
+            f"Weather in {city}: {description}. "
+            f"Temperature: {temperature}°F. "
+            f"Feels like: {feels_like}°F. "
+            f"Humidity: {humidity}%."
+        )
+
+    except Exception as e:
+        return f"Unable to retrieve weather: {e}"
+
+
+# ============================================================
+# CALCULATOR
+# ============================================================
+
+def calculate(expression: str) -> str:
+    try:
+        allowed = set(
+            "0123456789+-*/().% "
+        )
+
+        if not all(char in allowed for char in expression):
+            return "Invalid mathematical expression."
+
+        result = eval(expression, {"__builtins__": {}}, {})
+
+        return str(result)
+
+    except Exception as e:
+        return f"Calculation error: {e}"
+
+
+# ============================================================
+# TASKS
+# ============================================================
 
 def add_task(task: str) -> str:
-    tasks = _load_tasks()
+    tasks = load_json(TASKS_FILE, [])
 
     tasks.append({
         "task": task,
-        "done": False
+        "completed": False
     })
 
-    _save_tasks(tasks)
+    save_json(TASKS_FILE, tasks)
 
-    return f"Added task: {task}"
+    return f"Task added: {task}"
 
 
 def list_tasks() -> str:
-    tasks = _load_tasks()
+    tasks = load_json(TASKS_FILE, [])
 
     if not tasks:
-        return "No tasks yet."
+        return "You currently have no tasks."
 
-    lines = []
+    output = []
 
-    for i, t in enumerate(tasks, start=1):
-        mark = "x" if t["done"] else " "
-        lines.append(f"{i}. [{mark}] {t['task']}")
+    for i, task in enumerate(tasks, start=1):
+        status = "✓" if task["completed"] else "○"
+        output.append(
+            f"{i}. {status} {task['task']}"
+        )
 
-    return "\n".join(lines)
+    return "\n".join(output)
 
 
 def complete_task(task_number: int) -> str:
-    tasks = _load_tasks()
+    tasks = load_json(TASKS_FILE, [])
 
-    if task_number < 1 or task_number > len(tasks):
-        return f"No task number {task_number}."
+    try:
+        index = int(task_number) - 1
 
-    tasks[task_number - 1]["done"] = True
+        if index < 0 or index >= len(tasks):
+            return "That task number does not exist."
 
-    _save_tasks(tasks)
+        tasks[index]["completed"] = True
 
-    return (
-        f"Marked task {task_number} as done: "
-        f"{tasks[task_number - 1]['task']}"
-    )
+        save_json(TASKS_FILE, tasks)
+
+        return f"Completed task: {tasks[index]['task']}"
+
+    except Exception:
+        return "Invalid task number."
 
 
-# ---------------------------------------------------------
+# ============================================================
+# STOCK PRICE
+# ============================================================
+
+def get_stock_price(ticker: str) -> str:
+    try:
+        ticker = ticker.upper()
+
+        url = (
+            f"https://query1.finance.yahoo.com/v8/finance/"
+            f"chart/{ticker}?range=1d&interval=1m"
+        )
+
+        response = requests.get(
+            url,
+            timeout=10,
+            headers={
+                "User-Agent": "Mozilla/5.0"
+            }
+        )
+
+        data = response.json()
+
+        result = data["chart"]["result"][0]
+
+        meta = result["meta"]
+
+        price = meta.get("regularMarketPrice")
+        currency = meta.get("currency", "USD")
+
+        return (
+            f"{ticker}: {price} {currency}"
+        )
+
+    except Exception as e:
+        return f"Unable to retrieve stock price: {e}"
+
+
+# ============================================================
 # EXPENSES
-# ---------------------------------------------------------
-
-def _load_expenses():
-    if os.path.exists(EXPENSES_FILE):
-        try:
-            with open(EXPENSES_FILE, "r") as f:
-                return json.load(f)
-        except (json.JSONDecodeError, IOError):
-            return []
-
-    return []
-
-
-def _save_expenses(expenses):
-    with open(EXPENSES_FILE, "w") as f:
-        json.dump(expenses, f, indent=2)
-
+# ============================================================
 
 def add_expense(
     amount: float,
@@ -348,129 +525,62 @@ def add_expense(
     note: str = ""
 ) -> str:
 
-    expenses = _load_expenses()
+    expenses = load_json(EXPENSES_FILE, [])
 
-    expenses.append({
-        "amount": amount,
-        "category": category.lower(),
+    expense = {
+        "amount": float(amount),
+        "category": category,
         "note": note
-    })
+    }
 
-    _save_expenses(expenses)
+    expenses.append(expense)
 
-    note_str = f" ({note})" if note else ""
+    save_json(EXPENSES_FILE, expenses)
 
     return (
-        f"Logged ${amount:.2f} under "
-        f"'{category}'{note_str}"
+        f"Expense added: ${amount:.2f} "
+        f"under {category}."
     )
 
 
 def get_spending_summary() -> str:
-    expenses = _load_expenses()
+    expenses = load_json(EXPENSES_FILE, [])
 
     if not expenses:
-        return "No expenses logged yet."
+        return "No expenses recorded."
 
-    totals = {}
+    total = sum(
+        float(expense["amount"])
+        for expense in expenses
+    )
+
+    categories = {}
 
     for expense in expenses:
         category = expense["category"]
-        amount = expense["amount"]
 
-        totals[category] = totals.get(category, 0) + amount
-
-    total = sum(totals.values())
-
-    lines = [
-        f"{cat}: ${amt:.2f}"
-        for cat, amt in sorted(
-            totals.items(),
-            key=lambda x: -x[1]
+        categories[category] = (
+            categories.get(category, 0)
+            + float(expense["amount"])
         )
+
+    output = [
+        f"Total spending: ${total:.2f}",
+        "",
+        "By category:"
     ]
 
-    lines.append(f"---\nTotal: ${total:.2f}")
-
-    return "\n".join(lines)
-
-
-# ---------------------------------------------------------
-# STOCKS
-# ---------------------------------------------------------
-
-def get_stock_price(ticker: str) -> str:
-    try:
-        import yfinance as yf
-
-        stock = yf.Ticker(ticker.upper())
-
-        price = stock.fast_info.last_price
-        currency = stock.fast_info.currency
-
-        return (
-            f"{ticker.upper()} is currently trading at "
-            f"{price:.2f} {currency}"
+    for category, amount in categories.items():
+        output.append(
+            f"- {category}: ${amount:.2f}"
         )
 
-    except Exception as e:
-        return (
-            f"Couldn't get stock price for "
-            f"{ticker}: {e}"
-        )
+    return "\n".join(output)
 
 
-# ---------------------------------------------------------
-# WEATHER
-# ---------------------------------------------------------
-
-def get_weather(city: str) -> str:
-    try:
-        response = requests.get(
-            f"https://wttr.in/{city}?format=3",
-            timeout=10
-        )
-
-        response.raise_for_status()
-
-        return response.text.strip()
-
-    except Exception as e:
-        return f"Couldn't get weather: {e}"
-
-
-# ---------------------------------------------------------
-# CALCULATOR
-# ---------------------------------------------------------
-
-def calculate(expression: str) -> str:
-
-    allowed = set(
-        "0123456789+-*/().% "
-    )
-
-    if not set(expression) <= allowed:
-        return (
-            "Error: expression contains "
-            "characters that aren't allowed."
-        )
-
-    try:
-        result = eval(
-            expression,
-            {"__builtins__": {}},
-            {}
-        )
-
-        return str(result)
-
-    except Exception as e:
-        return f"Error evaluating expression: {e}"
-
-
-# ---------------------------------------------------------
-# BOOK WRITER & PUBLISHER
-# ---------------------------------------------------------
+# ============================================================
+# BOOK WRITER / PUBLISHER
+# ============================================================
 
 def book_writer_publisher(
     request_type: str,
@@ -480,144 +590,56 @@ def book_writer_publisher(
     audience: str = ""
 ) -> str:
 
-    context_parts = []
-
-    if book_title:
-        context_parts.append(
-            f"Working book title: {book_title}"
-        )
-
-    if genre:
-        context_parts.append(
-            f"Genre: {genre}"
-        )
-
-    if audience:
-        context_parts.append(
-            f"Target audience: {audience}"
-        )
-
-    context = "\n".join(context_parts)
-
-    request_descriptions = {
-        "book_idea":
-            "Develop and strengthen the user's book idea.",
-
-        "title":
-            "Create strong, marketable book titles and subtitles.",
-
-        "outline":
-            "Create a professional book outline.",
-
-        "chapters":
-            "Create a detailed chapter-by-chapter structure.",
-
-        "synopsis":
-            "Create a professional synopsis.",
-
-        "query_letter":
-            "Create a professional literary query letter.",
-
-        "book_proposal":
-            "Create a professional book proposal.",
-
-        "author_bio":
-            "Create a compelling professional author biography.",
-
-        "submission_package":
-            "Create a complete publishing submission package.",
-
-        "find_writer":
-            "Help determine what kind of professional writer would be appropriate.",
-
-        "find_ghostwriter":
-            "Help determine what kind of ghostwriter would be appropriate.",
-
-        "find_editor":
-            "Help determine what type of editor is needed.",
-
-        "find_literary_agent":
-            "Explain how to identify appropriate literary agents.",
-
-        "find_publisher":
-            "Explain how to identify appropriate publishers.",
-
-        "compare_publishers":
-            "Create a framework for comparing publishers.",
-
-        "publishing_strategy":
-            "Create a professional publishing strategy.",
-
-        "general":
-            "Provide professional book-writing and publishing assistance."
-    }
-
-    description = request_descriptions.get(
-        request_type,
-        request_descriptions["general"]
-    )
-
     prompt = f"""
-You are the Book Writer & Publisher module inside JARVIS.
+You are JARVIS's Book Writer and Publishing Specialist.
 
-Task:
-{description}
+Request type:
+{request_type}
 
-User request:
+Book title:
+{book_title}
+
+Genre:
+{genre}
+
+Target audience:
+{audience}
+
+User's details:
 {details}
 
-Book context:
-{context}
+Help the user professionally.
 
-Important rules:
+If the user is developing a book:
+- Improve the concept.
+- Develop the structure.
+- Create a strong title.
+- Develop chapters.
+- Improve writing.
+- Create a synopsis.
+- Create a publishing strategy.
 
-1. Do not fabricate facts about real writers, agents, publishers,
-   contracts, prices, availability, or submission requirements.
+If the user wants a professional:
+Explain whether they may need:
+- Ghostwriter
+- Co-writer
+- Developmental editor
+- Copy editor
+- Literary agent
+- Traditional publisher
+- Hybrid publisher
+- Self-publishing service
 
-2. If the request requires current research, explain that current
-   web verification is required unless live web research is available.
+Never claim a specific professional has agreed to work
+with the user unless verified.
 
-3. Help the user turn their idea into a professional book project.
-
-4. When recommending a professional, distinguish between:
-   - Famous author
-   - Ghostwriter
-   - Co-writer
-   - Developmental editor
-   - Copy editor
-   - Literary agent
-   - Traditional publisher
-   - Hybrid publisher
-   - Self-publishing service
-
-5. For publishing recommendations, consider:
-   - Genre
-   - Target audience
-   - Commercial potential
-   - Author platform
-   - Geographic market
-   - Traditional vs independent publishing
-   - Agent requirements
-   - Submission requirements
-
-6. If the user wants a famous writer, explain that famous authors
-   may not personally accept outside writing projects and that a
-   professional ghostwriter or co-writer may be more realistic.
-
-7. Never state that a person has agreed to work with the user unless
-   that agreement is verified.
-
-8. Make the result practical and actionable.
-
-Return a polished response that JARVIS can give directly to the user.
+Return a practical, professional answer.
 """
 
     try:
-
         response = client.messages.create(
             model=MODEL,
-            max_tokens=2048,
-            system=SYSTEM_PROMPT,
+            max_tokens=3000,
             messages=[
                 {
                     "role": "user",
@@ -626,24 +648,314 @@ Return a polished response that JARVIS can give directly to the user.
             ]
         )
 
-        text_parts = [
-            block.text
-            for block in response.content
-            if block.type == "text"
-        ]
-
-        return "\n".join(text_parts)
-
-    except Exception as e:
-        return (
-            "The Book Writer & Publisher module encountered "
-            f"an error: {e}"
+        return next(
+            (
+                block.text
+                for block in response.content
+                if block.type == "text"
+            ),
+            ""
         )
 
+    except Exception as e:
+        return f"Book writer error: {e}"
 
-# ---------------------------------------------------------
+
+# ============================================================
+# LEGAL ASSISTANT
+# ============================================================
+
+def legal_assistant(
+    request_type: str,
+    details: str,
+    jurisdiction: str = "",
+    objective: str = ""
+) -> str:
+
+    prompt = f"""
+You are JARVIS's Legal Assistant.
+
+You are an AI legal assistant, NOT a licensed attorney.
+
+The user needs help with the following legal matter.
+
+Request type:
+{request_type}
+
+Jurisdiction:
+{jurisdiction}
+
+User's objective:
+{objective}
+
+Details:
+{details}
+
+Analyze the matter carefully.
+
+Use this structure when appropriate:
+
+1. LEGAL ISSUE
+2. IMPORTANT FACTS
+3. MISSING INFORMATION
+4. GENERAL LEGAL PRINCIPLES
+5. ARGUMENTS IN THE USER'S FAVOR
+6. POSSIBLE ARGUMENTS AGAINST THE USER
+7. IMPORTANT EVIDENCE
+8. RISKS
+9. POSSIBLE OPTIONS
+10. RECOMMENDED NEXT STEPS
+11. QUESTIONS FOR A LICENSED ATTORNEY
+
+Important rules:
+
+- Do not invent laws.
+- Do not invent cases.
+- Do not invent statutes.
+- Do not invent legal citations.
+- Do not guarantee an outcome.
+- Clearly state when current legal research is necessary.
+- If the matter appears urgent, recommend contacting a qualified
+  attorney promptly.
+- Explain legal terminology in plain English.
+- Ask for missing facts when they are necessary.
+
+Be analytical, strategic, and professional.
+"""
+
+    try:
+        response = client.messages.create(
+            model=MODEL,
+            max_tokens=4000,
+            messages=[
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ]
+        )
+
+        return next(
+            (
+                block.text
+                for block in response.content
+                if block.type == "text"
+            ),
+            ""
+        )
+
+    except Exception as e:
+        return f"Legal assistant error: {e}"
+
+
+# ============================================================
+# ANTHROPIC TOOLS
+# ============================================================
+
+TOOLS = [
+
+    {
+        "name": "get_weather",
+        "description": "Get current weather for a city.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "city": {
+                    "type": "string",
+                    "description": "City name"
+                }
+            },
+            "required": ["city"]
+        }
+    },
+
+    {
+        "name": "calculate",
+        "description": "Perform a mathematical calculation.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "expression": {
+                    "type": "string",
+                    "description": "Mathematical expression"
+                }
+            },
+            "required": ["expression"]
+        }
+    },
+
+    {
+        "name": "add_task",
+        "description": "Add a task to the user's task list.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "task": {
+                    "type": "string"
+                }
+            },
+            "required": ["task"]
+        }
+    },
+
+    {
+        "name": "list_tasks",
+        "description": "List the user's tasks.",
+        "input_schema": {
+            "type": "object",
+            "properties": {}
+        }
+    },
+
+    {
+        "name": "complete_task",
+        "description": "Mark a task as completed.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "task_number": {
+                    "type": "integer"
+                }
+            },
+            "required": ["task_number"]
+        }
+    },
+
+    {
+        "name": "get_stock_price",
+        "description": "Get a stock's current market price.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "ticker": {
+                    "type": "string"
+                }
+            },
+            "required": ["ticker"]
+        }
+    },
+
+    {
+        "name": "add_expense",
+        "description": "Record an expense.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "amount": {
+                    "type": "number"
+                },
+                "category": {
+                    "type": "string"
+                },
+                "note": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "amount",
+                "category"
+            ]
+        }
+    },
+
+    {
+        "name": "get_spending_summary",
+        "description": "Show the user's spending summary.",
+        "input_schema": {
+            "type": "object",
+            "properties": {}
+        }
+    },
+
+    {
+        "name": "book_writer_publisher",
+        "description": """
+        Help with book writing, publishing, ghostwriters,
+        literary agents, publishers, editing, book proposals,
+        and publishing strategy.
+        """,
+        "input_schema": {
+            "type": "object",
+            "properties": {
+
+                "request_type": {
+                    "type": "string",
+                    "description": "Type of book request"
+                },
+
+                "details": {
+                    "type": "string",
+                    "description": "Details about the request"
+                },
+
+                "book_title": {
+                    "type": "string"
+                },
+
+                "genre": {
+                    "type": "string"
+                },
+
+                "audience": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "request_type",
+                "details"
+            ]
+        }
+    },
+
+    {
+        "name": "legal_assistant",
+        "description": """
+        Analyze legal situations, organize case information,
+        explain legal concepts, prepare legal documents,
+        identify evidence, analyze arguments and risks,
+        and prepare questions for a licensed attorney.
+        """,
+        "input_schema": {
+            "type": "object",
+            "properties": {
+
+                "request_type": {
+                    "type": "string",
+                    "description": """
+                    Type of legal request, such as legal analysis,
+                    contract review, demand letter, case preparation,
+                    lawsuit preparation, employment issue,
+                    landlord tenant issue, business issue, etc.
+                    """
+                },
+
+                "details": {
+                    "type": "string",
+                    "description": "Detailed description of the legal matter"
+                },
+
+                "jurisdiction": {
+                    "type": "string",
+                    "description": "State, county, city, or federal jurisdiction"
+                },
+
+                "objective": {
+                    "type": "string",
+                    "description": "What the user wants to accomplish"
+                }
+            },
+            "required": [
+                "request_type",
+                "details"
+            ]
+        }
+    }
+]
+
+
+# ============================================================
 # TOOL ROUTER
-# ---------------------------------------------------------
+# ============================================================
 
 def run_tool(name: str, tool_input: dict) -> str:
 
@@ -694,41 +1006,34 @@ def run_tool(name: str, tool_input: dict) -> str:
             audience=tool_input.get("audience", "")
         )
 
+    if name == "legal_assistant":
+        return legal_assistant(
+            request_type=tool_input["request_type"],
+            details=tool_input["details"],
+            jurisdiction=tool_input.get(
+                "jurisdiction",
+                ""
+            ),
+            objective=tool_input.get(
+                "objective",
+                ""
+            )
+        )
+
     return f"Unknown tool: {name}"
 
 
-# ---------------------------------------------------------
-# JARVIS
-# ---------------------------------------------------------
+# ============================================================
+# JARVIS CLASS
+# ============================================================
 
 class Jarvis:
 
     def __init__(self):
-        self.history = self._load_memory()
+        self.history = load_memory()
 
-    def _load_memory(self):
-
-        if os.path.exists(MEMORY_FILE):
-
-            try:
-
-                with open(MEMORY_FILE, "r") as f:
-                    return json.load(f)
-
-            except (json.JSONDecodeError, IOError):
-
-                return []
-
-        return []
-
-    def _save_memory(self):
-
-        with open(MEMORY_FILE, "w") as f:
-            json.dump(
-                self.history,
-                f,
-                indent=2
-            )
+    def save(self):
+        save_memory(self.history)
 
     def ask(self, user_input: str) -> str:
 
@@ -739,25 +1044,22 @@ class Jarvis:
 
         response = client.messages.create(
             model=MODEL,
-            max_tokens=2048,
+            max_tokens=4096,
             system=SYSTEM_PROMPT,
             tools=TOOLS,
             messages=self.history
         )
 
-        # Continue handling tools until Claude
-        # produces the final answer.
-
         while response.stop_reason == "tool_use":
 
-            serializable_content = [
+            assistant_content = [
                 block.model_dump()
                 for block in response.content
             ]
 
             self.history.append({
                 "role": "assistant",
-                "content": serializable_content
+                "content": assistant_content
             })
 
             tool_results = []
@@ -784,7 +1086,7 @@ class Jarvis:
 
             response = client.messages.create(
                 model=MODEL,
-                max_tokens=2048,
+                max_tokens=4096,
                 system=SYSTEM_PROMPT,
                 tools=TOOLS,
                 messages=self.history
@@ -804,7 +1106,7 @@ class Jarvis:
             "content": reply
         })
 
-        self._save_memory()
+        self.save()
 
         return reply
 
@@ -812,81 +1114,104 @@ class Jarvis:
 
         self.history = []
 
-        self._save_memory()
+        self.save()
 
 
-# ---------------------------------------------------------
+# ============================================================
 # MAIN
-# ---------------------------------------------------------
+# ============================================================
 
 def main():
 
     jarvis = Jarvis()
 
-    msg_count = len(jarvis.history)
+    print()
+    print("==========================================")
+    print("           JARVIS ONLINE")
+    print("==========================================")
+    print()
 
-    if msg_count > 0:
+    if jarvis.history:
 
         print(
-            f"JARVIS is online. "
-            f"Remembering {msg_count} previous messages."
+            f"Memory loaded: "
+            f"{len(jarvis.history)} messages"
         )
 
     else:
 
         print(
-            "JARVIS is online. "
-            "Starting fresh."
+            "Memory loaded: Starting fresh."
         )
 
-    print(
-        "Type 'quit' to exit, "
-        "'reset' to clear memory.\n"
-    )
+    print()
+    print("Available systems:")
+    print("  • Personal Assistant")
+    print("  • Legal Assistant")
+    print("  • Book Writer & Publisher")
+    print("  • Tasks")
+    print("  • Expenses")
+    print("  • Stocks")
+    print("  • Weather")
+    print("  • Calculator")
+    print()
+    print("Type 'quit' to exit.")
+    print("Type 'reset' to clear memory.")
+    print()
+    print("==========================================")
+    print()
 
     while True:
 
-        user_input = input(
-            "You: "
-        ).strip()
-
-        if not user_input:
-            continue
-
-        if user_input.lower() == "quit":
-
-            print(
-                "JARVIS: Goodbye."
-            )
-
-            break
-
-        if user_input.lower() == "reset":
-
-            jarvis.reset()
-
-            print(
-                "JARVIS: Memory cleared.\n"
-            )
-
-            continue
-
         try:
 
-            reply = jarvis.ask(
-                user_input
-            )
+            user_input = input("You: ").strip()
 
-            print(
-                f"JARVIS: {reply}\n"
-            )
+            if not user_input:
+                continue
+
+            if user_input.lower() == "quit":
+
+                print()
+                print("JARVIS: Goodbye.")
+                print()
+
+                break
+
+            if user_input.lower() == "reset":
+
+                jarvis.reset()
+
+                print()
+                print("JARVIS: Memory cleared.")
+                print()
+
+                continue
+
+            reply = jarvis.ask(user_input)
+
+            print()
+            print("JARVIS:")
+            print(reply)
+            print()
+
+        except KeyboardInterrupt:
+
+            print()
+            print()
+            print("JARVIS: Shutdown.")
+            break
 
         except Exception as e:
 
-            print(
-                f"[Error] {e}\n"
-            )
+            print()
+            print(f"[ERROR] {e}")
+            print()
 
+
+# ============================================================
+# START JARVIS
+# ============================================================
 
 if __name__ == "__main__":
     main()
