@@ -5,6 +5,7 @@ Core text-based brain. Voice, smart home, etc. get layered on top of this later.
 
 import os
 import json
+import requests
 from anthropic import Anthropic
 from dotenv import load_dotenv
 
@@ -17,6 +18,37 @@ MEMORY_FILE = "memory.json"
 SYSTEM_PROMPT = """You are Jarvis, a helpful personal assistant.
 Be concise and direct. You'll eventually have tools for smart home control
 and other tasks, but for now just have natural conversations."""
+
+TOOLS = [
+    {
+        "name": "get_weather",
+        "description": "Get the current weather for a city.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "city": {
+                    "type": "string",
+                    "description": "The city name, e.g. 'London' or 'New York'"
+                }
+            },
+            "required": ["city"]
+        }
+    }
+]
+
+
+def get_weather(city: str) -> str:
+    try:
+        response = requests.get(f"https://wttr.in/{city}?format=3", timeout=10)
+        return response.text.strip()
+    except Exception as e:
+        return f"Couldn't get weather: {e}"
+
+
+def run_tool(name: str, tool_input: dict) -> str:
+    if name == "get_weather":
+        return get_weather(tool_input["city"])
+    return f"Unknown tool: {name}"
 
 
 class Jarvis:
@@ -43,10 +75,35 @@ class Jarvis:
             model=MODEL,
             max_tokens=1024,
             system=SYSTEM_PROMPT,
+            tools=TOOLS,
             messages=self.history,
         )
 
-        reply = response.content[0].text
+        # Keep handling tool calls until Claude gives a final text answer
+        while response.stop_reason == "tool_use":
+            self.history.append({"role": "assistant", "content": response.content})
+
+            tool_results = []
+            for block in response.content:
+                if block.type == "tool_use":
+                    result = run_tool(block.name, block.input)
+                    tool_results.append({
+                        "type": "tool_result",
+                        "tool_use_id": block.id,
+                        "content": result
+                    })
+
+            self.history.append({"role": "user", "content": tool_results})
+
+            response = client.messages.create(
+                model=MODEL,
+                max_tokens=1024,
+                system=SYSTEM_PROMPT,
+                tools=TOOLS,
+                messages=self.history,
+            )
+
+        reply = next((b.text for b in response.content if b.type == "text"), "")
         self.history.append({"role": "assistant", "content": reply})
         self._save_memory()
         return reply
