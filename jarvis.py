@@ -83,6 +83,20 @@ TOOLS = [
             },
             "required": ["task_number"]
         }
+    },
+    {
+        "name": "get_stock_price",
+        "description": "Get the current stock price for a ticker symbol, e.g. AAPL, TSLA, GOOGL.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "ticker": {
+                    "type": "string",
+                    "description": "The stock ticker symbol, e.g. 'AAPL' for Apple"
+                }
+            },
+            "required": ["ticker"]
+        }
     }
 ]
 
@@ -131,6 +145,17 @@ def complete_task(task_number: int) -> str:
     return f"Marked task {task_number} as done: {tasks[task_number - 1]['task']}"
 
 
+def get_stock_price(ticker: str) -> str:
+    try:
+        import yfinance as yf
+        stock = yf.Ticker(ticker.upper())
+        price = stock.fast_info.last_price
+        currency = stock.fast_info.currency
+        return f"{ticker.upper()} is currently trading at {price:.2f} {currency}"
+    except Exception as e:
+        return f"Couldn't get stock price for {ticker}: {e}"
+
+
 def get_weather(city: str) -> str:
     try:
         response = requests.get(f"https://wttr.in/{city}?format=3", timeout=10)
@@ -161,6 +186,8 @@ def run_tool(name: str, tool_input: dict) -> str:
         return list_tasks()
     if name == "complete_task":
         return complete_task(tool_input["task_number"])
+    if name == "get_stock_price":
+        return get_stock_price(tool_input["ticker"])
     return f"Unknown tool: {name}"
 
 
