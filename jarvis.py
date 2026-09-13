@@ -127,6 +127,38 @@ TOOLS = [
             "type": "object",
             "properties": {}
         }
+    },
+    {
+        "name": "log_word_count",
+        "description": "Log the current total word count of a writing project (e.g. a book), to track progress over time.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "project": {
+                    "type": "string",
+                    "description": "Name of the project, e.g. 'my book'"
+                },
+                "word_count": {
+                    "type": "integer",
+                    "description": "The current total word count"
+                }
+            },
+            "required": ["project", "word_count"]
+        }
+    },
+    {
+        "name": "get_writing_progress",
+        "description": "Show word count history and progress for a writing project.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "project": {
+                    "type": "string",
+                    "description": "Name of the project, e.g. 'my book'"
+                }
+            },
+            "required": ["project"]
+        }
     }
 ]
 
@@ -227,6 +259,50 @@ def get_stock_price(ticker: str) -> str:
         return f"Couldn't get stock price for {ticker}: {e}"
 
 
+WRITING_FILE = "writing_progress.json"
+
+
+def _load_writing():
+    if os.path.exists(WRITING_FILE):
+        try:
+            with open(WRITING_FILE, "r") as f:
+                return json.load(f)
+        except (json.JSONDecodeError, IOError):
+            return {}
+    return {}
+
+
+def _save_writing(data):
+    with open(WRITING_FILE, "w") as f:
+        json.dump(data, f, indent=2)
+
+
+def log_word_count(project: str, word_count: int) -> str:
+    from datetime import date
+    data = _load_writing()
+    key = project.lower()
+    if key not in data:
+        data[key] = []
+    data[key].append({"date": str(date.today()), "word_count": word_count})
+    _save_writing(data)
+    return f"Logged {word_count} words for '{project}' on {date.today()}"
+
+
+def get_writing_progress(project: str) -> str:
+    data = _load_writing()
+    key = project.lower()
+    entries = data.get(key, [])
+    if not entries:
+        return f"No word count history for '{project}' yet."
+
+    lines = [f"{e['date']}: {e['word_count']} words" for e in entries]
+    first = entries[0]["word_count"]
+    latest = entries[-1]["word_count"]
+    diff = latest - first
+    lines.append(f"---\nProgress: {'+' if diff >= 0 else ''}{diff} words since {entries[0]['date']}")
+    return "\n".join(lines)
+
+
 def get_weather(city: str) -> str:
     try:
         response = requests.get(f"https://wttr.in/{city}?format=3", timeout=10)
@@ -263,6 +339,10 @@ def run_tool(name: str, tool_input: dict) -> str:
         return add_expense(tool_input["amount"], tool_input["category"], tool_input.get("note", ""))
     if name == "get_spending_summary":
         return get_spending_summary()
+    if name == "log_word_count":
+        return log_word_count(tool_input["project"], tool_input["word_count"])
+    if name == "get_writing_progress":
+        return get_writing_progress(tool_input["project"])
     return f"Unknown tool: {name}"
 
 
