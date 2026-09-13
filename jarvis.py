@@ -97,6 +97,36 @@ TOOLS = [
             },
             "required": ["ticker"]
         }
+    },
+    {
+        "name": "add_expense",
+        "description": "Log a new expense with an amount and category.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "amount": {
+                    "type": "number",
+                    "description": "The amount spent, e.g. 12.50"
+                },
+                "category": {
+                    "type": "string",
+                    "description": "Category of the expense, e.g. 'food', 'transport', 'entertainment'"
+                },
+                "note": {
+                    "type": "string",
+                    "description": "Optional short note about the expense"
+                }
+            },
+            "required": ["amount", "category"]
+        }
+    },
+    {
+        "name": "get_spending_summary",
+        "description": "Get a summary of total spending, broken down by category.",
+        "input_schema": {
+            "type": "object",
+            "properties": {}
+        }
     }
 ]
 
@@ -145,6 +175,47 @@ def complete_task(task_number: int) -> str:
     return f"Marked task {task_number} as done: {tasks[task_number - 1]['task']}"
 
 
+EXPENSES_FILE = "expenses.json"
+
+
+def _load_expenses():
+    if os.path.exists(EXPENSES_FILE):
+        try:
+            with open(EXPENSES_FILE, "r") as f:
+                return json.load(f)
+        except (json.JSONDecodeError, IOError):
+            return []
+    return []
+
+
+def _save_expenses(expenses):
+    with open(EXPENSES_FILE, "w") as f:
+        json.dump(expenses, f, indent=2)
+
+
+def add_expense(amount: float, category: str, note: str = "") -> str:
+    expenses = _load_expenses()
+    expenses.append({"amount": amount, "category": category.lower(), "note": note})
+    _save_expenses(expenses)
+    note_str = f" ({note})" if note else ""
+    return f"Logged ${amount:.2f} under '{category}'{note_str}"
+
+
+def get_spending_summary() -> str:
+    expenses = _load_expenses()
+    if not expenses:
+        return "No expenses logged yet."
+
+    totals = {}
+    for e in expenses:
+        totals[e["category"]] = totals.get(e["category"], 0) + e["amount"]
+
+    total = sum(totals.values())
+    lines = [f"{cat}: ${amt:.2f}" for cat, amt in sorted(totals.items(), key=lambda x: -x[1])]
+    lines.append(f"---\nTotal: ${total:.2f}")
+    return "\n".join(lines)
+
+
 def get_stock_price(ticker: str) -> str:
     try:
         import yfinance as yf
@@ -188,6 +259,10 @@ def run_tool(name: str, tool_input: dict) -> str:
         return complete_task(tool_input["task_number"])
     if name == "get_stock_price":
         return get_stock_price(tool_input["ticker"])
+    if name == "add_expense":
+        return add_expense(tool_input["amount"], tool_input["category"], tool_input.get("note", ""))
+    if name == "get_spending_summary":
+        return get_spending_summary()
     return f"Unknown tool: {name}"
 
 
