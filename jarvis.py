@@ -81,7 +81,8 @@ class Jarvis:
 
         # Keep handling tool calls until Claude gives a final text answer
         while response.stop_reason == "tool_use":
-            self.history.append({"role": "assistant", "content": response.content})
+            serializable_content = [block.model_dump() for block in response.content]
+            self.history.append({"role": "assistant", "content": serializable_content})
 
             tool_results = []
             for block in response.content:
