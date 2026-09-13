@@ -63,4 +63,198 @@ TOOLS = [
         }
     },
     {
-        
+        "name": "list_tasks",
+        "description": "List all current to-do items, showing which are done and which are still pending.",
+        "input_schema": {
+            "type": "object",
+            "properties": {}
+        }
+    },
+    {
+        "name": "complete_task",
+        "description": "Mark a task as done, by its number in the list (use list_tasks first to find the number).",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "task_number": {
+                    "type": "integer",
+                    "description": "The number of the task to mark complete, starting at 1"
+                }
+            },
+            "required": ["task_number"]
+        }
+    }
+]
+
+TASKS_FILE = "tasks.json"
+
+
+def _load_tasks():
+    if os.path.exists(TASKS_FILE):
+        try:
+            with open(TASKS_FILE, "r") as f:
+                return json.load(f)
+        except (json.JSONDecodeError, IOError):
+            return []
+    return []
+
+
+def _save_tasks(tasks):
+    with open(TASKS_FILE, "w") as f:
+        json.dump(tasks, f, indent=2)
+
+
+def add_task(task: str) -> str:
+    tasks = _load_tasks()
+    tasks.append({"task": task, "done": False})
+    _save_tasks(tasks)
+    return f"Added task: {task}"
+
+
+def list_tasks() -> str:
+    tasks = _load_tasks()
+    if not tasks:
+        return "No tasks yet."
+    lines = []
+    for i, t in enumerate(tasks, start=1):
+        mark = "x" if t["done"] else " "
+        lines.append(f"{i}. [{mark}] {t['task']}")
+    return "\n".join(lines)
+
+
+def complete_task(task_number: int) -> str:
+    tasks = _load_tasks()
+    if task_number < 1 or task_number > len(tasks):
+        return f"No task number {task_number}."
+    tasks[task_number - 1]["done"] = True
+    _save_tasks(tasks)
+    return f"Marked task {task_number} as done: {tasks[task_number - 1]['task']}"
+
+
+def get_weather(city: str) -> str:
+    try:
+        response = requests.get(f"https://wttr.in/{city}?format=3", timeout=10)
+        return response.text.strip()
+    except Exception as e:
+        return f"Couldn't get weather: {e}"
+
+
+def calculate(expression: str) -> str:
+    allowed = set("0123456789+-*/().% ")
+    if not set(expression) <= allowed:
+        return "Error: expression contains characters that aren't allowed."
+    try:
+        result = eval(expression, {"__builtins__": {}}, {})
+        return str(result)
+    except Exception as e:
+        return f"Error evaluating expression: {e}"
+
+
+def run_tool(name: str, tool_input: dict) -> str:
+    if name == "get_weather":
+        return get_weather(tool_input["city"])
+    if name == "calculate":
+        return calculate(tool_input["expression"])
+    if name == "add_task":
+        return add_task(tool_input["task"])
+    if name == "list_tasks":
+        return list_tasks()
+    if name == "complete_task":
+        return complete_task(tool_input["task_number"])
+    return f"Unknown tool: {name}"
+
+
+class Jarvis:
+    def __init__(self):
+        self.history = self._load_memory()
+
+    def _load_memory(self):
+        if os.path.exists(MEMORY_FILE):
+            try:
+                with open(MEMORY_FILE, "r") as f:
+                    return json.load(f)
+            except (json.JSONDecodeError, IOError):
+                return []
+        return []
+
+    def _save_memory(self):
+        with open(MEMORY_FILE, "w") as f:
+            json.dump(self.history, f, indent=2)
+
+    def ask(self, user_input: str) -> str:
+        self.history.append({"role": "user", "content": user_input})
+
+        response = client.messages.create(
+            model=MODEL,
+            max_tokens=1024,
+            system=SYSTEM_PROMPT,
+            tools=TOOLS,
+            messages=self.history,
+        )
+
+        # Keep handling tool calls until Claude gives a final text answer
+        while response.stop_reason == "tool_use":
+            serializable_content = [block.model_dump() for block in response.content]
+            self.history.append({"role": "assistant", "content": serializable_content})
+
+            tool_results = []
+            for block in response.content:
+                if block.type == "tool_use":
+                    result = run_tool(block.name, block.input)
+                    tool_results.append({
+                        "type": "tool_result",
+                        "tool_use_id": block.id,
+                        "content": result
+                    })
+
+            self.history.append({"role": "user", "content": tool_results})
+
+            response = client.messages.create(
+                model=MODEL,
+                max_tokens=1024,
+                system=SYSTEM_PROMPT,
+                tools=TOOLS,
+                messages=self.history,
+            )
+
+        reply = next((b.text for b in response.content if b.type == "text"), "")
+        self.history.append({"role": "assistant", "content": reply})
+        self._save_memory()
+        return reply
+
+    def reset(self):
+        self.history = []
+        self._save_memory()
+
+
+def main():
+    jarvis = Jarvis()
+    msg_count = len(jarvis.history)
+    if msg_count > 0:
+        print(f"Jarvis is online. Remembering {msg_count} previous messages.")
+    else:
+        print("Jarvis is online. Starting fresh.")
+    print("Type 'quit' to exit, 'reset' to clear memory.\n")
+
+    while True:
+        user_input = input("You: ").strip()
+
+        if not user_input:
+            continue
+        if user_input.lower() == "quit":
+            print("Jarvis: Goodbye.")
+            break
+        if user_input.lower() == "reset":
+            jarvis.reset()
+            print("Jarvis: Memory cleared.\n")
+            continue
+
+        try:
+            reply = jarvis.ask(user_input)
+            print(f"Jarvis: {reply}\n")
+        except Exception as e:
+            print(f"[Error] {e}\n")
+
+
+if __name__ == "__main__":
+    main()
